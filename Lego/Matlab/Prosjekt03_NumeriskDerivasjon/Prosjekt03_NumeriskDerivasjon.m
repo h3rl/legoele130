@@ -128,12 +128,13 @@ while ~JoyMainSwitch
     
     Avstand(k) = Lys(k) + randn;
     
+    alpha = 0.3;
+    
     if k ~= 1
         Ts(k-1) = Tid(k) - Tid(k-1);
         
         Fart(k-1) = Derivation(Avstand(k-1:k),Ts(k-1));
         
-        alpha = 0.3;
         
         Avstand_IIR(k) = IIR_filter(Avstand_IIR(k-1),Avstand(k),alpha);
         Fart_IIR(k-1) = Derivation(Avstand_IIR(k-1:k),Ts(k-1))
@@ -167,7 +168,9 @@ while ~JoyMainSwitch
     hold on;
     plot(Tid(1:k),Avstand(1:k),"r","DisplayName", "Avstand");
     plot(Tid(1:k),Avstand_IIR(1:k),"b","DisplayName", "Avstand IIR");
+    subtitle(sprintf("Avstandsmåling rådata (b) og IIR-filtrert avstandsmåling alfa=%.2f (r)",alpha));
     hold off;
+    
     xlabel('Tid [sek]');
     ylabel('Avstand [m]');
     
@@ -175,11 +178,10 @@ while ~JoyMainSwitch
     hold on;
     plot(Tid(1:k-1),Fart(1:k-1),"r","DisplayName", "Fart");
     plot(Tid(1:k-1),Fart_IIR(1:k-1),"b","DisplayName", "Fart IIR");
+    subtitle("Hastighetsberegninger, ubrukelig rådata(b) og filtrert(r)");
     hold off;
     xlabel('Tid [sek]');
     ylabel('Fart [m/s]');
-    
-    title('Filtrering');
     
     % tegn naa (viktig kommando)
     drawnow
@@ -206,7 +208,7 @@ if online
         clear joystick
     else
         clear joymex2
-    end 
+    end
 end
 %------------------------------------------------------------------
 
