@@ -14,10 +14,10 @@
 % Alltid lurt aa rydde workspace opp foerst
 clear all; close all
 % Skal prosjektet gjennomfoeres online mot EV3 eller mot lagrede data?
-online = true;
+online = false;
 % Spesifiser et beskrivende filnavn for lagring av maaledata
 %filename = 'P02_Measurement_step.mat';
-filename = 'P02_Measurement_sin.mat';
+filename = 'P03_obl1.mat';
 %--------------------------------------------------------------------------
 
 
@@ -126,23 +126,21 @@ while ~JoyMainSwitch
     % hvis motor er tilkoplet. 
     % Kaller IKKE paa en funksjon slik som i Python
     
-    alpha = 0.5;
-    
     Avstand(k) = Lys(k) + randn;
     
     if k ~= 1
-        Ts(k) = Tid(k) - Tid(k-1);
+        Ts(k-1) = Tid(k) - Tid(k-1);
         
-        Fart(k) = Derivation(Avstand(k-1:k),Ts(k));
+        Fart(k-1) = Derivation(Avstand(k-1:k),Ts(k-1));
+        
+        alpha = 0.3;
         
         Avstand_IIR(k) = IIR_filter(Avstand_IIR(k-1),Avstand(k),alpha);
-        Fart_IIR(k) = Derivation(Avstand_IIR(k-1:k),Ts(k))
+        Fart_IIR(k-1) = Derivation(Avstand_IIR(k-1:k),Ts(k-1))
+        
     else
-        Ts(k) = 0;
-        
-        Fart(k) = 0;
-        
         Avstand_IIR(k) = Avstand(k);
+        Fart(k) = 0;
         Fart_IIR(k) = 0;
     end
     
@@ -175,8 +173,8 @@ while ~JoyMainSwitch
     
     subplot(2,1,2)
     hold on;
-    plot(Tid(1:k),Fart(1:k),"r","DisplayName", "Fart");
-    plot(Tid(1:k),Fart_IIR(1:k),"b","DisplayName", "Fart IIR");
+    plot(Tid(1:k-1),Fart(1:k-1),"r","DisplayName", "Fart");
+    plot(Tid(1:k-1),Fart_IIR(1:k-1),"b","DisplayName", "Fart IIR");
     hold off;
     xlabel('Tid [sek]');
     ylabel('Fart [m/s]');

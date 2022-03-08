@@ -1,3 +1,3 @@
 function [Derivative] = Derivation(FunctionValues,TimeStep)
-    Derivative = (FunctionValues(1) - FunctionValues(2)) / TimeStep;
+    Derivative = (FunctionValues(2) - FunctionValues(1)) / TimeStep;
 end

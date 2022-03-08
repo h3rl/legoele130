@@ -165,6 +165,9 @@ while ~JoyMainSwitch
     % hvis motor er tilkoplet. 
     % Kaller IKKE paa en funksjon slik som i Python
     
+    angvel_der = Derivation(GyroRate(k-1:k),Tid(k-1))
+    angvel_hp = FIR_filter()
+    
     PowerA(k) = 0; % 0.7*JoyForover(k);
     PowerB(k) = 0;
 %     PowerC(k) = ...
@@ -198,18 +201,6 @@ while ~JoyMainSwitch
     assert(dt > 0)
     
     error = setpoint - inp;%[setpoint-inp error(1:end-1)]
-    % insert new error at k=1 and remove end to maintain length of 3
-
-%     if Proportional_on_measurement
-%         if k ~= 1
-%             dinp = inp - lastinp;
-%         else
-%             dinp = 0;
-%         end
-%         P = Kp*dinp;
-%     else
-%         P = Kp * error(1);
-%     end
 
     P = Kp * error(1);
     
@@ -232,13 +223,9 @@ while ~JoyMainSwitch
         % (slett de motorene du ikke bruker)
         motorA.Speed = PowerA(k);
         motorB.Speed = PowerB(k);
-%         motorC.Speed = PowerC(k);
-%         motorD.Speed = PowerD(k);
         
         start(motorA)
         start(motorB)
-%         start(motorC)
-%         start(motorD)
     end
     %--------------------------------------------------------------
    
