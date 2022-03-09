@@ -208,24 +208,9 @@ while ~JoyMainSwitch
     
     figure(fig1)
     subplot(2,2,1)
-    plot(Tid(1:k),VinkelPosMotorA(1:k));
+    plot(Tid(1:k),(1:k));
     xlabel('Tid [sek]')
     title('Vinkelposisjon motor A')
-    
-    subplot(2,2,2)
-    plot(Tid(1:k),PowerA(1:k));
-    xlabel('Tid [sek]')
-    title('PowerA')
-    
-    subplot(2,2,3)
-    plot(Tid(1:k),summeringAvPowerA(1:k));
-    xlabel('Tid [sek]')
-    title('Summering av PowerA')
-    
-    subplot(2,2,4)
-    plot(Tid(1:k),VinkelPos_vs_Forward(1:k));
-    xlabel('Tid [sek]')
-    title('Vinkelposisjon vs joyForover')
     
     % tegn naa (viktig kommando)
     drawnow
@@ -236,7 +221,7 @@ while ~JoyMainSwitch
 end
 
 % lagre data i fil.
-save('P00_MeasTest_1.mat','Tid','Lys','VinkelPosMotorA','JoyForover')
+save('P04_joyaxis.mat','Tid','JoyForover')
 
 % +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 %           CLOSE JOYSTICK AND EV3
