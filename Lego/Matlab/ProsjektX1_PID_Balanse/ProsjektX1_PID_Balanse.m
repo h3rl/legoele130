@@ -21,11 +21,11 @@
 % Alltid lurt aa rydde workspace opp foerst
 clear all; close all
 % Skal prosjektet gjennomfoeres online mot EV3 eller mot lagrede data?
-online = false;
+online = true;
 % Spesifiser et beskrivende filnavn for lagring av maaledata
-filename = 'P02_singlepeak.mat';
-%--------------------------------------------------------------------------
+filename = '.mat';
 
+%--------------------------------------------------------------------------
 
 % +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 %                      INITIALIZE EQUIPMENT
@@ -61,40 +61,64 @@ if online
         joymex2('open',0);
     end
     
-    % sensorer
-%     myColorSensor = colorSensor(mylego);
-%     myTouchSensor = touchSensor(mylego);
-%     mySonicSensor = sonicSensor(mylego);
+    %% init sensorer og motorer
     myGyroSensor  = gyroSensor(mylego);
     resetRotationAngle(myGyroSensor);
-     
+
     % motorer
     motorA = motor(mylego,'A');
     motorA.resetRotation;
     motorB = motor(mylego,'B');
     motorB.resetRotation;
-%     motorC = motor(mylego,'C');
-%     motorC.resetRotation;
-%     motorD = motor(mylego,'D');
-%     motorD.resetRotation;
-else
-    % Dersom online=false lastes datafil.     
-    load(filename)
+
+    %% init values
+
+    sampletime = 22; % ms
+    wheeldiameter = 42; % mm
+    gyrotype = 0;
+    kp = 0.6;
+    ki = 14;
+    kd = 0.005;
+    gain_angular_velocity = 1.3;
+    gain_angle = 25;
+    gain_motor_speed = 75;
+    gain_motor_pos = 350;
+
+    dt = (sampletime-2)/1000;
+    radius = wheeldiameter/2000;
+    max_index = 7;
+    enc_val = zeros(max_index);
+
+    motor_refpos = 0;
+    NowOutOfBound = false;
+    PrevOutOfBound = false;
+    OutOfBoundCount = 0;
+    OutOfBound = 0;
+    angle = 0;
+    mean_angle = 0;
+
+    speed = 0;
+    steering = 0;
+    max_acceleration = 0;
+
+    onerad = 180/pi;
+
+    %% Kalibrere gyro
+    playTone(myev3,440,0.1,10);
+    pause(0.1);
+    gyro_mean = 0;
+    for i = 1:100
+        gyro_mean = gyro_mean + readRotationRate(myGyroSensor);
+        pause(0.005);
+    end
+    gyro_mean = gyro_mean/100;
+    pause(0.1);
+    playTone(myev3,440,0.1,10);
+    pause(0.1);
+    playTone(myev3,440,0.1,10);
 end
 
 disp('Equipment initialized.')
-%----------------------------------------------------------------------
-    
-
-%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-%                       SPECIFY FIGURE SIZE
-fig1=figure;
-screen = get(0,'Screensize');
-set(fig1,'Position',[1,1,0.5*screen(3), 0.5*screen(4)])
-set(0,'defaultTextInterpreter','latex');
-set(0,'defaultAxesFontSize',14)
-set(0,'defaultTextFontSize',16)
-%----------------------------------------------------------------------
 
 % setter skyteknapp til 0, og tellevariabel k=1
 JoyMainSwitch=0;
@@ -115,31 +139,26 @@ while ~JoyMainSwitch
         else
             Tid(k) = toc;
         end
-                
+
         % sensorer
-%         Lys(k) = double(readLightIntensity(myColorSensor,'reflected'));
-%         LysDirekte(k) = double(readLightIntensity(myColorSensor));
-%         Bryter(k)  = double(readTouch(myTouchSensor));
-%         Avstand(k) = double(readDistance(mySonicSensor));
-        GyroAngle(k) = double(readRotationAngle(myGyroSensor));
-        GyroRate(k)  = double(readRotationRate(myGyroSensor));
-           
+        GyroAngle(k) = readRotationAngle(myGyroSensor);
+        GyroRate(k) = readRotationRate(myGyroSensor);
+        
         % motorer
+
         VinkelPosMotorA(k) = double(motorA.readRotation);
         VinkelPosMotorB(k) = double(motorB.readRotation);
-%         VinkelPosMotorC(k) = double(motorC.readRotation);
-%         VinkelPosMotorD(k) = double(motorC.readRotation);
         
         % Data fra styrestikke. Utvid selv med andre knapper og akser
         if ismac
-            skalering = 100;       % konvertering fra 1 til 100%
+            %skalering = 100;       % konvertering fra 1 til 100%
             JoyMainSwitch = button(joystick,1);
-            JoyForover(k) = -skalering*axis(joystick,2);
+            %JoyForover(k) = -skalering*axis(joystick,2);
         else
-            skalering = 100/2^15;  % konvertering fra 2^15 til 100%
+            %skalering = 100/2^15;  % konvertering fra 2^15 til 100%
             joystick      = joymex2('query',0);
             JoyMainSwitch = joystick.buttons(1);
-            JoyForover(k) = -skalering*double(joystick.axes(2)); 
+            %JoyForover(k) = -skalering*double(joystick.axes(2)); 
         end
         
     else
@@ -151,12 +170,10 @@ while ~JoyMainSwitch
         end
         
         % simulerer EV3-Matlab kommunikasjon i online=false
-        pause(0.01)
+        % pause(0.01)
 
     end
     %--------------------------------------------------------------
-
-       
     
     
     % +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -164,60 +181,96 @@ while ~JoyMainSwitch
     % Gjoer matematiske beregninger og motorkraftberegninger 
     % hvis motor er tilkoplet. 
     % Kaller IKKE paa en funksjon slik som i Python
-    
-    angvel_der = Derivation(GyroRate(k-1:k),Tid(k-1))
-    angvel_hp = FIR_filter()
-    
-    PowerA(k) = 0; % 0.7*JoyForover(k);
-    PowerB(k) = 0;
-%     PowerC(k) = ...
-%     PowerD(k) = ...    
+     
 
-    if k == 1 % Konstanter som skal settes en gang
-        
-        %settings
-        Proportional_on_measurement = false;
-        Output_max = 100;
-        Output_min = 0;
-        
-        Kp = 90;
-        Ki = 10;
-        Kd = 0;
-        setpoint = 100;
-        inp = 15;
-        lastinp = 0;
-        sample_time = 0.01;
-        
-        error(1:2) = 0;
-        
-        dt = 0.1
+    motor_refpos = motor_refpos + (Ts(k-1)*speed*0.002);%spesial
+    
+    enc_index = enc_index + 1;
+    if enc_index == max_index
+        enc_index = 0;
+    end
+    compare_index = enc_index + 1;
+    if compare_index == max_index
+        compare_index = 0;
+    end
+    avg_VinkelPos = (VinkelPosMotorA(k)+VinkelPosMotorB(k))/2;
+    enc_val(enc_index) = avg_VinkelPos
+
+    motorspeed = (enc_val(enc_index)-enc_val(compare_index))/(Ts(k-1)*max_index)
+
+
+    robotspeed = radius*motorspeed/onerad;%spesial
+    robotposition = radius*avg_VinkelPos/onerad;%spesial
+
+
+
+    % read gyrorate
+    gyrorate = 0;
+    for j=1:5
+        gyrorate = gyrorate + readRotationRate(myGyroSensor);
+    end
+    gyrorate = gyrorate/5;
+
+    % calc angles and angvel(readgyro)
+    mean_angle = (1-Ts(k-1)*0.2)*mean_angle + Ts(k-1)*0.2*gyrorate;
+    
+    angular_velocity = gyrorate - mean_angle; %spesial
+    angle = angle + Ts(k-1)*angular_velocity; %spesial
+
+
+    % calc weighted sum
+    Error(k) = gain_angle * angle + ...
+                gain_angular_velocity*angular_velocity + ...
+                gain_motor_speed * robotspeed + ...
+                gain_motor_pos*(robotposition-motor_refpos);
+
+    if k == 1
+        Error(k) = 0;
+        acc_error(k) = 0;
     else
-        dt = dt + Tid(k) - Tid(k-1);
+        Ts(k-1) = Tid(k) - Tid(k-1);
+        
+        P(k) = Kp * Error(k);
+
+        I(k) = EulerForward(I(k-1),Ki*Error(k-1),Ts(k-1));
+        %I(k) = Clamp(I(k),outMin,outMax);
+
+        %alpha = 0.85;
+        %Error_f(k) = IIR_filter(Error_f(k-1),Error(k),alpha);
+        D(k) = Kd*Derivation(Error(k-1:k),Ts(k-1));
+
+        Output(k) = basis + P(k)+I(k)+D(k);
+        Output(k) = Clamp(Output(k),outMin,outMax);
+    end
+
+    if abs(Output(k)) > 100
+        NowOutOfBound = true;
+    end
+    if NowOutOfBound && PrevOutOfBound
+        OutOfBoundCount = OutOfBoundCount + 1;
+    else
+        OutOfBoundCount = 0;
+    end
+
+    if OutOfBoundCount > 20
+        pause(0.1);
+        stop(motorA);          
+        stop(motorB);
+%         playTone(myev3,800,0.1,10);
+%         playTone(myev3,600,0.1,10);
+%         playTone(myev3,300,0.1,10);
+        JoyMainSwitch = true;
+        continue;
+    else
+         OutOfBound = NowOutOfBound;
     end
     
-    Desired(k) = setpoint
-    
-    %inp = lest_verdi;
-    assert(dt > 0)
-    
-    error = setpoint - inp;%[setpoint-inp error(1:end-1)]
 
-    P = Kp * error(1);
     
-    I = Ki * error(1) * dt;
-    %I = min(Output_max,max(Output_min,I)) % basic clamp
-    
-    D = -Kd*(inp-lastinp)/dt;
-    
-    output = P+I+D;
-    %output = min(Output_max,max(Output_min,output)) % basic clamp
-    
-    inp = inp + output*0.01 +randn*k^0.5;
-    lastinp = inp;
-    lastout = output;
-    
-    Outputs(k) = inp;
-    
+    PowerA(k) = - Output(k)*0.021/radius;
+    PowerB(k) = - Output(k)*0.021/radius;
+
+    if ~calcdrift || GyroAngle(k) > balanceoffset - 45 && GyroAngle(k) < balanceoffset + 45
     if online
         % Setter powerdata mot EV3
         % (slett de motorene du ikke bruker)
@@ -226,6 +279,7 @@ while ~JoyMainSwitch
         
         start(motorA)
         start(motorB)
+    end
     end
     %--------------------------------------------------------------
    
@@ -245,19 +299,10 @@ while ~JoyMainSwitch
     % hele datasettet (1:end) eksisterer i den lagrede .mat fila
     
     % aktiver fig1
-    figure(fig1);
-    clf;
     
-    subplot(1,1,1);
-    hold on;
-    plot(Tid(1:k),Outputs(1:k));
-    plot(Tid(1:k),Desired(1:k));
-    hold off;
-    title('PID');
-    xlabel('Tid [sek]');
-    
-    % tegn naa (viktig kommando)
-    drawnow
+    if plotting
+        PlotPID;
+    end
     %--------------------------------------------------------------
 
     % For aa flytte PLOT DATA etter while-lokken, er det enklest aa
@@ -276,17 +321,18 @@ if online
     % For ryddig og oversiktlig kode, er det lurt aa slette
     % de sensorene og motoren som ikke brukes.
     stop(motorA);           
-    stop(motorB);           
-%     stop(motorC);           
-%     stop(motorD);           
+    stop(motorB);          
 
     clear mylego
     if ismac
         clear joystick
     else
         clear joymex2
-    end 
+    end
+    k = k-1;
 end
+
+PlotPID;
 %------------------------------------------------------------------
 
 
